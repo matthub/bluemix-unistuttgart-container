@@ -1,0 +1,64 @@
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'eclipse'
+apply plugin: 'docker'
+apply plugin: 'gradle-one-jar'
+
+buildscript {
+    repositories { jcenter() }
+    dependencies {
+        classpath 'se.transmode.gradle:gradle-docker:1.2'
+        classpath 'com.github.rholder:gradle-one-jar:1.0.4'
+    }
+}
+
+// Basic Properties
+sourceCompatibility = 1.7
+targetCompatibility = '1.7'
+
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+version = '0.1'
+mainClassName = "net.bluemix.samples.java.web.SampleApplication"
+
+group = 'matthiashub'
+
+project.ext {
+    dropwizardVersion = '0.8.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile 'io.dropwizard:dropwizard-testing:' + dropwizardVersion
+
+    compile 'io.dropwizard:dropwizard-core:' + dropwizardVersion
+    compile 'io.dropwizard:dropwizard-jdbi:' + dropwizardVersion
+    compile 'io.dropwizard:dropwizard-assets:' + dropwizardVersion
+
+    compile 'de.thomaskrille.dropwizard:dropwizard-environment-configuration:1.1'
+}
+
+task oneJar(type: OneJar) {
+    mainClass = mainClassName
+}
+
+docker {
+    maintainer = 'Matthias Hub <matthias.hub@de.ibm.com>'
+    baseImage = 'java:8-jre'
+}
+
+task container(type: Docker, dependsOn: oneJar) {
+    addFile(new File('config.yml'), '/opt/dropwizard/config.yml')
+    addFile(new File('build/libs/dropwizard-sample-' + version + '-standalone.jar'), '/opt/dropwizard/dropwizard-sample.jar')
+    exposePort 8080
+    workingDir '/opt/dropwizard'
+    defaultCommand([ "java", "-jar", "-Done-jar.silent=true", "dropwizard-sample.jar", "server", "config.yml" ].toList())
+}
+
+run {
+    args 'server', 'config.yml'
+}
